@@ -199,6 +199,6 @@ func main() {
 	blockchain.Print()
 
 	fmt.Printf("my %.1f\n", blockchain.CalculateTotalAmount("my_blockchain_address"))
-	fmt.Printf("C %.1f\n", blockchain.CalculateTotalAmount("C"))
-	fmt.Printf("D %.1f\n", blockchain.CalculateTotalAmount("D"))
+	fmt.Printf("C  %.1f\n", blockchain.CalculateTotalAmount("C"))
+	fmt.Printf("D  %.1f\n", blockchain.CalculateTotalAmount("D"))
 }
