@@ -1,9 +1,11 @@
 package block
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"goblockchain/utils"
 	"log"
 	"strings"
 	"time"
@@ -92,9 +94,39 @@ func (bc *Blockchain) Print() {
 	fmt.Println(strings.Repeat("*", 60))
 }
 
-func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32) {
+func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32,
+	senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	t := NewTransaction(sender, recipient, value)
-	bc.transactionPool = append(bc.transactionPool, t)
+
+	// マイニング報酬を渡すトランザクションは送り元がブロックチェーンネットワークであるため、
+	// トランザクションの検証を行わない。
+	if sender == MINING_SENDER {
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	}
+
+	// 取引トランザクション(例：Aさん→Bさん)の場合は、改竄防止のため検証を行う。
+	if bc.VerifyTransactionSignature(senderPublicKey, s, t) {
+		/*
+			// valueが不足していた場合、トランザクションを作成しない。
+			if bc.CalculateTotalAmount(sender) < value {
+				log.Println("ERROR: Not enough balance in a wallet")
+				return false
+			}
+		*/
+		bc.transactionPool = append(bc.transactionPool, t)
+		return true
+	} else {
+		log.Println("ERROR: Verify Transaction")
+	}
+	return false
+}
+
+func (bc *Blockchain) VerifyTransactionSignature(
+	senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
+	m, _ := json.Marshal(t)
+	h := sha256.Sum256([]byte(m))
+	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
 }
 
 func (bc *Blockchain) CopyTransactionPool() []*Transaction {
@@ -127,7 +159,7 @@ func (bc *Blockchain) ProofOfWork() int {
 }
 
 func (bc *Blockchain) Mining() bool {
-	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD)
+	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
